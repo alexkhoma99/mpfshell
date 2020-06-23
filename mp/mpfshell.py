@@ -724,7 +724,6 @@ class MpFileShell(cmd.Cmd):
         """edit <REMOTE FILE>
         Copies file over, opens it in your editor, copies back when done.
         """
-        EDITOR = os.environ.get('EDITOR', 'vim')
         try:
             self.do_get(args)
         except IOError as e:
@@ -735,7 +734,12 @@ class MpFileShell(cmd.Cmd):
                 pass
 
         rfile_name, = self.__parse_file_names(args)
-        subprocess.call([EDITOR, rfile_name])
+        if platform.system() == 'Windows':    
+            EDITOR = os.environ.get('EDITOR', 'notepad')
+            subprocess.call([EDITOR, rfile_name], shell=True)
+        else:
+            EDITOR = os.environ.get('EDITOR', 'vim')
+            subprocess.call([EDITOR, rfile_name])
         self.do_put(rfile_name)
 
 
