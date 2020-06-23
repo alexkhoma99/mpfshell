@@ -32,6 +32,7 @@ import os
 import platform
 import sys
 import tempfile
+import subprocess
 
 import colorama
 import serial
@@ -40,6 +41,7 @@ from mp.conbase import ConError
 from mp.mpfexp import MpFileExplorer, MpFileExplorerCaching, RemoteIOError
 from mp.pyboard import PyboardError
 from mp.tokenizer import Tokenizer
+
 
 
 class MpFileShell(cmd.Cmd):
@@ -717,6 +719,24 @@ class MpFileShell(cmd.Cmd):
             os.unlink(tmp)
 
     complete_putc = complete_mpyc
+
+    def do_edit(self, args):
+        """edit <REMOTE FILE>
+        Copies file over, opens it in your editor, copies back when done.
+        """
+        EDITOR = os.environ.get('EDITOR', 'vim')
+        try:
+            self.do_get(args)
+        except IOError as e:
+            if "No such file" in str(e):
+                # make new file locally, then copy
+                # Not implemented yet
+                self.__error(str(e))
+                pass
+
+        rfile_name, = self.__parse_file_names(args)
+        subprocess.call([EDITOR, rfile_name])
+        self.do_put(rfile_name)
 
 
 def main():
