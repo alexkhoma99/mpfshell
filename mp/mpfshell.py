@@ -42,6 +42,8 @@ from mp.mpfexp import MpFileExplorer, MpFileExplorerCaching, RemoteIOError
 from mp.pyboard import PyboardError
 from mp.tokenizer import Tokenizer
 
+from antenny import config
+
 
 
 class MpFileShell(cmd.Cmd):
@@ -51,6 +53,8 @@ class MpFileShell(cmd.Cmd):
             cmd.Cmd.__init__(self, stdout=colorama.initialise.wrapped_stdout)
         else:
             cmd.Cmd.__init__(self)
+        
+        self.emptyline = lambda : None
 
         if platform.system() == "Windows":
             self.use_rawinput = False
@@ -65,6 +69,22 @@ class MpFileShell(cmd.Cmd):
 
         self.__intro()
         self.__set_prompt_path()
+
+        # Change prompts to be more descriptive
+        self.prompts = {
+                "gps_uart_tx": ("GPS UART TX pin#: ", int),
+                "gps_uart_rx": ("GPS UART RX pin#: ", int),
+                "i2c_servo_scl": ("Servo SCL pin#: ", int),
+                "i2c_servo_sda": ("Servo SDA pin#: ", int),
+                "i2c_bno_scl": ("BNO055 SCL pin#: ", int),
+                "i2c_bno_sda": ("BNO055 SDA pin#: ", int),
+                "i2c_screen_scl": ("Screen SCL pin#: ", int),
+                "i2c_screen_sda": ("Screen SDA pin#: ", int),
+                "elevation_servo_index": ("Servo default elevation index: ", float),
+                "azimuth_servo_index": ("Servo default azimuth index: ", float),
+                "elevation_max_rate": ("Servo elevation max rate: ", float),
+                "azimuth_max_rate": ("Servo azimuth max rate: ", float)
+        }
 
     def __del__(self):
         self.__disconnect()
@@ -742,7 +762,77 @@ class MpFileShell(cmd.Cmd):
             subprocess.call([EDITOR, rfile_name])
         self.do_put(rfile_name)
 
+    complete_edit = complete_get
 
+    def do_setup(self, args):
+        """setup
+        Interactive script to populate the initial config file.
+        """
+        print(colorama.Fore.GREEN +
+                "Welcome to Antenny!" +
+                colorama.Fore.RESET)
+        print("Please enter the following information about your hardware\n")
+
+        for k,info in self.prompts.items():
+            prompt_text, typ = info
+            try:
+                new_val = typ(input(prompt_text))
+            except ValueError:
+                new_val = config._defaults[k] 
+
+            config.set(k, new_val)
+
+        print(colorama.Fore.GREEN +
+                "\nConfiguration set!\n" +
+                colorama.Fore.RESET +
+                "You can use \"set\" to change individual parameters\n" \
+                "or \"edit config.json\" to change the config file " \
+                "directly")
+        
+        self.do_put("config.json")
+
+    def do_set(self, args):
+        """set <CONFIG_PARAM> <NEW_VAL>
+        Set a parameter in the configuration file to a new value."""
+        # print(args, len(args))
+        if not len(args):
+            self.__error("Missing arguments: <CONFIG_PARAM> <NEW_VAL>")
+
+        s_args = self.__parse_file_names(args)
+        if len(s_args) < 2:
+            self.__error("Missing argument: <NEW_VAL>")
+            return
+
+        key, new_val = s_args
+        try:
+            old_val = config.get(key)
+        except:
+            self.__error("No such configuration parameter")
+            return
+
+        _, typ = self.prompts[key]
+        try:
+            new_val = typ(new_val)
+        except ValueError:
+            self.__error(str(e))
+            return
+
+        config.set(key, new_val)
+        self.do_put("config.json")
+        print("Changed " + "\"" + key + "\" from " + str(old_val) + " --> " + str(new_val))
+
+    def complete_set(self, *args):
+        return [key for key in self.prompts.keys() if key.startswith(args[0])]
+    
+    def do_configs(self, args):
+        """configs
+        Print a list of all configuration parameters."""
+        print(colorama.Fore.GREEN +
+                "-Config parameters-\n" +
+                colorama.Fore.RESET)
+        for key in self.prompts.keys():
+            print(key + ": " + str(config.get(key))) 
+        
 def main():
 
     parser = argparse.ArgumentParser()

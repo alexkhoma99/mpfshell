@@ -13,7 +13,7 @@ setup(
     url="https://github.com/wendlers/mpfshell",
     download_url="https://github.com/wendlers/mpfshell/archive/0.8.1.tar.gz",
     install_requires=["pyserial", "colorama", "websocket_client"],
-    packages=["mp"],
+    packages=["mp", "antenny"],
     keywords=["micropython", "shell", "file transfer", "development"],
     classifiers=[],
     entry_points={"console_scripts": ["mpfshell=mp.mpfshell:main"]},
