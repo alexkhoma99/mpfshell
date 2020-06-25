@@ -1,7 +1,7 @@
 # src/config.py
 
-import json as ujson # Uncomment this line for local testing
-# import ujson
+# import json as ujson # Uncomment this line for local testing
+import ujson
 import os
 
 
