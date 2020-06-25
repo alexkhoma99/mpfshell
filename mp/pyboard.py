@@ -148,6 +148,11 @@ class Pyboard:
         ret = ret.strip()
         return ret
 
+    def eval_string_mode(self, expr_string):
+        ret = self.exec_("print(eval({}))".format(expr_string))
+        ret = ret.strip()
+        return ret
+
     def exec_(self, command):
         ret, ret_err = self.exec_raw(command)
         if ret_err:

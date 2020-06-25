@@ -42,8 +42,6 @@ from mp.mpfexp import MpFileExplorer, MpFileExplorerCaching, RemoteIOError
 from mp.pyboard import PyboardError
 from mp.tokenizer import Tokenizer
 
-from antenny import config
-
 
 
 class MpFileShell(cmd.Cmd):
@@ -190,6 +188,16 @@ class MpFileShell(cmd.Cmd):
             return [token.value for token in tokens]
 
         return None
+
+    def __config_set(self, key, val):
+        if isinstance(val, int) or isinstance(val, float):
+            self.do_exec("config.set(\"%s\", %d)" % (key, val))
+        elif isinstance(val, str):
+            self.do_exec("config.set(\"%s\", %s)" % (key, val))
+
+    def __config_get(self, key):
+        command = "config.get(\"{}\")".format(key).encode('utf-8')
+        return self.fe.eval_string_mode(command).decode()
 
     def do_exit(self, args):
         """exit
@@ -594,7 +602,6 @@ class MpFileShell(cmd.Cmd):
             try:
                 self.fe.exec_raw_no_follow(args + "\n")
                 ret = self.fe.follow(None, data_consumer)
-
                 if len(ret[-1]):
                     self.__error(ret[-1].decode("utf-8"))
 
@@ -602,7 +609,7 @@ class MpFileShell(cmd.Cmd):
                 self.__error(str(e))
             except PyboardError as e:
                 self.__error(str(e))
-
+    
     def do_repl(self, args):
         """repl
         Enter Micropython REPL.
@@ -780,7 +787,8 @@ class MpFileShell(cmd.Cmd):
             except ValueError:
                 new_val = config._defaults[k] 
 
-            config.set(k, new_val)
+            # self.do_exec(self.__format_config_set(k, new_val))
+            self.__config_set(k, new_val)
 
         print(colorama.Fore.GREEN +
                 "\nConfiguration set!\n" +
@@ -789,7 +797,7 @@ class MpFileShell(cmd.Cmd):
                 "or \"edit config.json\" to change the config file " \
                 "directly")
         
-        self.do_put("config.json")
+        # self.do_put("config.json")
 
     def do_set(self, args):
         """set <CONFIG_PARAM> <NEW_VAL>
@@ -805,7 +813,7 @@ class MpFileShell(cmd.Cmd):
 
         key, new_val = s_args
         try:
-            old_val = config.get(key)
+            old_val = self.__config_get(key)
         except:
             self.__error("No such configuration parameter")
             return
@@ -817,8 +825,8 @@ class MpFileShell(cmd.Cmd):
             self.__error(str(e))
             return
 
-        config.set(key, new_val)
-        self.do_put("config.json")
+        # self.do_exec(self.__format_config_set(key, new_val))
+        self.__config_set(key, new_val)
         print("Changed " + "\"" + key + "\" from " + str(old_val) + " --> " + str(new_val))
 
     def complete_set(self, *args):
@@ -831,8 +839,10 @@ class MpFileShell(cmd.Cmd):
                 "-Config parameters-\n" +
                 colorama.Fore.RESET)
         for key in self.prompts.keys():
-            print(key + ": " + str(config.get(key))) 
-        
+            # command = "config.get(\"{}\")".format(key).encode('utf-8')
+            # print(key + ": " + self.fe.eval_string_mode(command).decode())
+            print(key + ": " + self.__config_get(key))
+
 def main():
 
     parser = argparse.ArgumentParser()
