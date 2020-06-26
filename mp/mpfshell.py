@@ -751,23 +751,27 @@ class MpFileShell(cmd.Cmd):
         """edit <REMOTE FILE>
         Copies file over, opens it in your editor, copies back when done.
         """
-        try:
-            self.do_get(args)
-        except IOError as e:
-            if "No such file" in str(e):
-                # make new file locally, then copy
-                # Not implemented yet
-                self.__error(str(e))
-                pass
+        if not len(args):
+            self.__error("Missing argument: <REMOTE_FILE>")
+        
+        elif self.__is_open():
+            try:
+                self.do_get(args)
+            except IOError as e:
+                if "No such file" in str(e):
+                    # make new file locally, then copy
+                    # Not implemented yet
+                    self.__error(str(e))
+                    pass
 
-        rfile_name, = self.__parse_file_names(args)
-        if platform.system() == 'Windows':    
-            EDITOR = os.environ.get('EDITOR', 'notepad')
-            subprocess.call([EDITOR, rfile_name], shell=True)
-        else:
-            EDITOR = os.environ.get('EDITOR', 'vim')
-            subprocess.call([EDITOR, rfile_name])
-        self.do_put(rfile_name)
+            rfile_name, = self.__parse_file_names(args)
+            if platform.system() == 'Windows':    
+                EDITOR = os.environ.get('EDITOR', 'notepad')
+                subprocess.call([EDITOR, rfile_name], shell=True)
+            else:
+                EDITOR = os.environ.get('EDITOR', 'vim')
+                subprocess.call([EDITOR, rfile_name])
+            self.do_put(rfile_name)
 
     complete_edit = complete_get
 
@@ -775,73 +779,102 @@ class MpFileShell(cmd.Cmd):
         """setup
         Interactive script to populate the initial config file.
         """
-        print(colorama.Fore.GREEN +
-                "Welcome to Antenny!" +
-                colorama.Fore.RESET)
-        print("Please enter the following information about your hardware\n")
+        if self.__is_open():
+            print(colorama.Fore.GREEN +
+                    "Welcome to Antenny!" +
+                    colorama.Fore.RESET)
+            print("Please enter the following information about your hardware\n")
 
-        for k,info in self.prompts.items():
-            prompt_text, typ = info
-            try:
-                new_val = typ(input(prompt_text))
-            except ValueError:
-                new_val = config._defaults[k] 
+            for k,info in self.prompts.items():
+                prompt_text, typ = info
+                try:
+                    new_val = typ(input(prompt_text))
+                except ValueError:
+                    new_val = config._defaults[k] 
 
-            # self.do_exec(self.__format_config_set(k, new_val))
-            self.__config_set(k, new_val)
+                self.__config_set(k, new_val)
 
-        print(colorama.Fore.GREEN +
-                "\nConfiguration set!\n" +
-                colorama.Fore.RESET +
-                "You can use \"set\" to change individual parameters\n" \
-                "or \"edit config.json\" to change the config file " \
-                "directly")
+            print(colorama.Fore.GREEN +
+                    "\nConfiguration set!\n" +
+                    colorama.Fore.RESET +
+                    "You can use \"set\" to change individual parameters\n" \
+                    "or \"edit config.json\" to change the config file " \
+                    "directly")
         
-        # self.do_put("config.json")
 
     def do_set(self, args):
         """set <CONFIG_PARAM> <NEW_VAL>
         Set a parameter in the configuration file to a new value."""
-        # print(args, len(args))
         if not len(args):
-            self.__error("Missing arguments: <CONFIG_PARAM> <NEW_VAL>")
+            self.__error("missing arguments: <config_param> <new_val>")
 
-        s_args = self.__parse_file_names(args)
-        if len(s_args) < 2:
-            self.__error("Missing argument: <NEW_VAL>")
-            return
+        elif self.__is_open():
+            s_args = self.__parse_file_names(args)
+            if len(s_args) < 2:
+                self.__error("Missing argument: <new_val>")
+                return
 
-        key, new_val = s_args
-        try:
-            old_val = self.__config_get(key)
-        except:
-            self.__error("No such configuration parameter")
-            return
+            key, new_val = s_args
+            try:
+                old_val = self.__config_get(key)
+            except:
+                self.__error("No such configuration parameter")
+                return
 
-        _, typ = self.prompts[key]
-        try:
-            new_val = typ(new_val)
-        except ValueError:
-            self.__error(str(e))
-            return
+            _, typ = self.prompts[key]
+            try:
+                new_val = typ(new_val)
+            except ValueError:
+                self.__error(str(e))
+                return
 
-        # self.do_exec(self.__format_config_set(key, new_val))
-        self.__config_set(key, new_val)
-        print("Changed " + "\"" + key + "\" from " + str(old_val) + " --> " + str(new_val))
+            self.__config_set(key, new_val)
+            print("Changed " + "\"" + key + "\" from " + str(old_val) + " --> " + str(new_val))
 
     def complete_set(self, *args):
-        return [key for key in self.prompts.keys() if key.startswith(args[0])]
+        if self.__is_open():
+            return [key for key in self.prompts.keys() if key.startswith(args[0])]
+        else:
+            return []
     
     def do_configs(self, args):
         """configs
         Print a list of all configuration parameters."""
-        print(colorama.Fore.GREEN +
-                "-Config parameters-\n" +
-                colorama.Fore.RESET)
-        for key in self.prompts.keys():
-            # command = "config.get(\"{}\")".format(key).encode('utf-8')
-            # print(key + ": " + self.fe.eval_string_mode(command).decode())
-            print(key + ": " + self.__config_get(key))
+        if self.__is_open():
+            print(colorama.Fore.GREEN +
+                    "-Config parameters-\n" +
+                    colorama.Fore.RESET)
+            for key in self.prompts.keys():
+                print(key + ": " + self.__config_get(key))
+
+    def do_clear(self, args):
+        """clear
+        Clear the currently used config file."""
+        ## FIX
+        if self.__is_open():
+            self.do_exec("config.clear()")
+
+    def do_revert(self, args):
+        """revert
+        Switch to using the backup config file. Current config
+        will be deleted."""
+        if self.__is_open():
+            self.do_exec("config.revert()")
+
+    def do_switch(self, args):
+        """switch <CONFIG_FILE>
+        Switch to using a different config file."""
+        if not len(args):
+            self.__error("Missing arguments: <config_file>")
+    
+        elif self.__is_open():
+            s_args = self.__parse_file_names(args)
+            if len(s_args) > 1:
+                self.__error("Usage: switch <CONFIG_FILE>")
+                return
+            name, = s_args 
+            self.do_exec("config.switch({})".format(name))
+
 
 def main():
 
